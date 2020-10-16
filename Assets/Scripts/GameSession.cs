@@ -18,13 +18,13 @@ public class GameSession : MonoBehaviour
 
     private void Start()
     {
-        ai = FindObjectOfType<AI>();
+        ai = FindObjectOfType<AI>();                                    //assign ai and gridmanager
         gridManager = FindObjectOfType<GridManager>();
     }
 
     private void Update()
     {
-        ProcessInput();
+        ProcessInput();                                                 //look for Esc button (menu)
     }
 
     private void ProcessInput()
@@ -51,7 +51,7 @@ public class GameSession : MonoBehaviour
         return turn;
     }
 
-    public State NewTurn(State[][] grid, Vector2Int lastMove, State activePlayer)
+    public State NewTurn(State[][] grid, Vector2Int lastMove, State activePlayer)                               //next turn, check for winner and possible endgame and change active player
     {
         print(grid[0][0] + " " + " " + lastMove.x + " " + lastMove.y + " " + activePlayer);
         winner = ai.CheckForWinner(grid, lastMove, activePlayer);
@@ -66,14 +66,14 @@ public class GameSession : MonoBehaviour
     }
 
     public void GameOver()
-    {
+    {                                                                                                       //depending on state enabled different plane. Spoiler alert: you cannot win
         playing = false;
         if (winner == State.blank) canvas.transform.Find("Tie").gameObject.SetActive(true);
         else if(winner == State.X) canvas.transform.Find("YouWon").gameObject.SetActive(true);
         else if (winner == State.O) canvas.transform.Find("YouLost").gameObject.SetActive(true);
     }
 
-    public void SetPlayer1Type(State pT)
+    public void SetPlayer1Type(State pT)                                                                    //could be used in case of PvP mode
     {
         p1Type = pT;
     }

@@ -10,10 +10,9 @@ public class AI : MonoBehaviour
 {
     State AIPlayer = State.O;
     State Player = State.X;
-    bool playing = true;
     GameSession gS;
 
-    public struct MoveEvaluation {
+    public struct MoveEvaluation {                                          //move evaluation instances is where move data will be stored during minimax algorithm's stages
         public int moveEval;
         public int x;
         public int y;
@@ -28,90 +27,76 @@ public class AI : MonoBehaviour
 
     private void Start()
     {
-        gS = FindObjectOfType<GameSession>();
+        gS = FindObjectOfType<GameSession>();                   //let AI know where to look for the GameSession
     }
 
-    public MoveEvaluation Minimax(State[][] grid, bool maxPlayer, int turn, int alpha, int beta, Vector2Int lastMove, State activePlayer)
+    public MoveEvaluation Minimax(State[][] grid, bool maxPlayer, int turn, int alpha, int beta, Vector2Int lastMove, State activePlayer)       
     {
-        State nextPlayer = maxPlayer ? State.O : State.X;
-        /*print("Turn : " + turn + ". Current Player = " + activePlayer);
-        print("Grid: ");
-        PrintGrid(grid);*/
-        //print("Starting turn " + turn + " as " + activePlayer + ", maxPlayer = " + maxPlayer);
-        State winner = CheckForWinner(grid, lastMove, nextPlayer);
-        MoveEvaluation moveEvaluation;
-        if (turn == 9 && winner == State.blank)        //next player is also previous player
+
+        //in the minimax algorithm, the AI(minimizing player) recursively calling the minimax function, searches all possible game positions and
+        //tries to minimize player's (maximizing player)score. For every different "stage" it is called, it switches between minimizing and maximizing player
+        //making decisions, choosing the optimal move evaluation depending on whose turn it is.
+
+
+
+        State nextPlayer = maxPlayer ? State.O : State.X;                                   //next player is the same as previous player
+        State winner = CheckForWinner(grid, lastMove, nextPlayer);                          
+        MoveEvaluation moveEvaluation;                                                      
+        if (turn == 9 && winner == State.blank)                                             //if we have reached the 9th (last turn) without a winner, calculate last move and check again
         {
             State lastMomentWinner = FillLastSlot(grid);
-            //print("Filled Grid: ");
-            //PrintGrid(grid);
-            if (lastMomentWinner == Player)
+            if (lastMomentWinner == Player)                                                 //if player wins this position return move evaluation (1+turns left)
             {
                 moveEvaluation = new MoveEvaluation(1, lastMove.x, lastMove.y);
-              //  print("Evaluation for this position is :" + moveEvaluation.moveEval);
             }
             else
             {
-                moveEvaluation = new MoveEvaluation(turn - 10, lastMove.x, lastMove.y);
-              //  print("Evaluation for this position is :" + moveEvaluation.moveEval);
+                moveEvaluation = new MoveEvaluation(turn - 10, lastMove.x, lastMove.y);     // else if AI won return points return move evaluation (-1-turns left)
             }
             return moveEvaluation;
         }
         if (winner == Player)
         {
             moveEvaluation = new MoveEvaluation(11 - turn, lastMove.x, lastMove.y);
-            //print("Player wins this potition with evaluation :" + moveEvaluation.moveEval);
             return moveEvaluation;
         }
         if(winner == AIPlayer)
         {
             moveEvaluation = new MoveEvaluation(turn - 11, lastMove.x, lastMove.y);
-            //print("AI wins this position with evaluation :" + moveEvaluation.moveEval);
             return moveEvaluation;
         }
         else
-        {
-            List<State[][]> children = new List<State[][]>();
-            List<Vector2Int> childrenMoves = new List<Vector2Int>();
+        {                                                                                       //if no one has won this position keep calculating
+            List<State[][]> children = new List<State[][]>();                                   //this is where the child positions will be kept
+            List<Vector2Int> childrenMoves = new List<Vector2Int>();                            //this is where the moves leading to corresponding child positions will be kept
             FindChildren(grid, activePlayer, children, childrenMoves);
 
             if (maxPlayer)
             {
-                MoveEvaluation maxEval = new MoveEvaluation(int.MinValue, -1, -1);
+                MoveEvaluation maxEval = new MoveEvaluation(int.MinValue, -1, -1);              //set to minimum so that if all moves are bad, they will at least beat the minimum evaluation
 
-                foreach (var c in children.Zip(childrenMoves, Tuple.Create))
+                foreach (var c in children.Zip(childrenMoves, Tuple.Create))                    //i need both child position and move so... tuples
                 {
-                //    print("Turn :" + turn +" ChildGrid: ");
-                //    PrintGrid(c.Item1);
-                    MoveEvaluation mE = Minimax(c.Item1, !maxPlayer, turn + 1, alpha, beta, c.Item2, nextPlayer);         
-                    if (mE.moveEval > maxEval.moveEval)
+                    MoveEvaluation mE = Minimax(c.Item1, !maxPlayer, turn + 1, alpha, beta, c.Item2, nextPlayer);         //recursively search ""tree of positions"
+                    if (mE.moveEval > maxEval.moveEval)                                         //if we have found a better move, update the move evaluation 
                     {
-                        /*print("Turn " + turn + " Player choosing to play move : " + mE.x + "," + mE.y + " because it has moveEval :" + mE.moveEval);
-                        print("Previous maxEval was : " + maxEval.moveEval + ". Playing in grid :");
-                        PrintGrid(grid);*/
                         maxEval.moveEval = mE.moveEval;
                         maxEval.x = c.Item2.x;
                         maxEval.y = c.Item2.y;
-                        alpha = Mathf.Max(alpha, maxEval.moveEval);
-                        if (alpha >= beta) return maxEval;
+                        alpha = Mathf.Max(alpha, maxEval.moveEval);                             //used for pruning. basically means that AI can know if the move they have evaluated up to
+                        if (alpha >= beta) return maxEval;                                      //now, is the best it can be, avoid reading any other child states of this branch
                     }
                 }
-                //print("Turn " + turn + " Player returning evaluation for move" + maxEval.x +"," + maxEval.y + " is :" + maxEval.moveEval);
-                return maxEval;
+                return maxEval;                                                                 //move evaluation goes all the way up from the bottom node to top node
             }
             else
-            {
+            {                                                                                   //the exact opposite for AI's turns
                 MoveEvaluation minEval = new MoveEvaluation(int.MaxValue, -1, -1);
                 foreach (var c in children.Zip(childrenMoves, Tuple.Create))
                 {
-                    //print("ChildGrid: ");
-                    //PrintGrid(c.Item1);
                     MoveEvaluation mE = Minimax(c.Item1, !maxPlayer, turn + 1, alpha, beta, c.Item2, nextPlayer);
                     if (mE.moveEval < minEval.moveEval)
                     {
-                        //print("Turn " + turn + " AI choosing to play move : " + mE.x + "," + mE.y + " because it has moveEval :" + mE.moveEval);
-                        //print("Previous minEval was : " + minEval.moveEval + ". Playing in grid :");
-                       // PrintGrid(grid);
                         minEval.moveEval = mE.moveEval;
                         minEval.x = c.Item2.x;
                         minEval.y = c.Item2.y;
@@ -119,13 +104,12 @@ public class AI : MonoBehaviour
                         if (alpha >= beta) return minEval;
                     }
                 }
-                //print("Turn " + turn + " AI returning evaluation for this position is :" + minEval.moveEval);
                 return minEval;
             }
         }
     }
 
-    private State FillLastSlot(State[][] grid)
+    private State FillLastSlot(State[][] grid)                                                          //self explanatory for last turn
     {
         for (int i = 0; i < 3; i++)
         {
@@ -133,7 +117,6 @@ public class AI : MonoBehaviour
             {
                 if (grid[i][j] == State.blank)
                 {
-                    //print("grid[" + i + "][" + j + "] = " + grid[i][j]);
                     grid[i][j] = State.X;
                     State winner = CheckForWinner(grid, new Vector2Int(i, j), State.X);
                     return winner;
@@ -143,7 +126,7 @@ public class AI : MonoBehaviour
         return State.blank;
     }
 
-    private void FindChildren(State[][] grid, State activePlayer, List<State[][]> children, List<Vector2Int>childrenMoves)
+    private void FindChildren(State[][] grid, State activePlayer, List<State[][]> children, List<Vector2Int>childrenMoves)      //calculates child positions based on empty cells
     {
         for (int i = 0; i < 3; i++)
         {
@@ -160,7 +143,7 @@ public class AI : MonoBehaviour
         }
     }
 
-    private static void ChildGrid(State[][] grid, State[][] tempGrid)
+    private static void ChildGrid(State[][] grid, State[][] tempGrid)                                       //creates child position for FindChildren
     {
         for (int i = 0; i < 3; i++)
         {
@@ -169,16 +152,15 @@ public class AI : MonoBehaviour
         }
     }
 
-    public Vector2Int AITurn(State[][] grid, int turn, Vector2Int lastMove)
+    public Vector2Int AITurn(State[][] grid, int turn, Vector2Int lastMove)                                 //here from GridManager, after player moves
     {
         MoveEvaluation move;
-        if (!gS.GetPlaying()) return lastMove;
+        if (!gS.GetPlaying()) return lastMove;                                                              //get playing status from GameSession
         else
         {
-            move = Minimax(grid, false, turn + 1, int.MinValue, int.MaxValue, lastMove, AIPlayer);
-            //print("AI has decided to play : " + move.x + " " + move.y);
-            grid[move.x][move.y] = AIPlayer;
-            GetComponent<GridManager>().transform.Find("Slot " + move.x + "," + move.y).transform.Find("O").gameObject.SetActive(true);
+            move = Minimax(grid, false, turn + 1, int.MinValue, int.MaxValue, lastMove, AIPlayer);          //minimax start
+            grid[move.x][move.y] = AIPlayer;                                                                //update grid
+            GetComponent<GridManager>().transform.Find("Slot " + move.x + "," + move.y).transform.Find("O").gameObject.SetActive(true);     //actually show move in game
         }
         return new Vector2Int(move.x, move.y);
     }
@@ -188,12 +170,10 @@ public class AI : MonoBehaviour
         //check col
         for (int i = 0; i < 3; i++)
         {
-            if (currentGrid[lastMove.x][i] != lastPlayer)
+            if (currentGrid[lastMove.x][i] != lastPlayer)                                                   //if anything in column doesn't match the last player, game's still on
                 break;
             if (i == 2)
             {
-                //print("Game Over");
-                //printGrid(currentGrid);
                 return lastPlayer;
             }
 
@@ -202,12 +182,10 @@ public class AI : MonoBehaviour
         //check row
         for (int i = 0; i < 3; i++)
         {
-            if (currentGrid[i][lastMove.y] != lastPlayer)
+            if (currentGrid[i][lastMove.y] != lastPlayer)                                                   //same for row, diag, anti-diag
                 break;
             if (i == 2)
             {
-                //print("Game Over");
-                //printGrid(currentGrid);
                 return lastPlayer;
             }
 
@@ -222,8 +200,6 @@ public class AI : MonoBehaviour
                     break;
                 if (i == 2)
                 {
-                    //print("Game Over");
-                    //printGrid(currentGrid);
                     return lastPlayer;
                 }
             }
@@ -238,8 +214,6 @@ public class AI : MonoBehaviour
                     break;
                 if (i == 2)
                 {
-                    //print("Game Over");
-                    //printGrid(currentGrid);
                     return lastPlayer;
                 }
             }
@@ -248,7 +222,7 @@ public class AI : MonoBehaviour
         return State.blank;
     }
 
-    private void PrintGrid(State[][] grid)
+    private void PrintGrid(State[][] grid)                                                              //for debugging purposes
     {
         for (int j = 2; j > -1; j--)
         {
@@ -262,180 +236,4 @@ public class AI : MonoBehaviour
         print("\n");
     }
 
-
-
-
-
-
-
-        /*
-    public MoveEvaluation Minimax(State[][] grid, int depth, bool maxPlayer, Vector2Int lastMove)
-    {
-        playing = true;
-        timesCalled++;
-        //print(maxPlayer);
-        State[][] tempgrid = new State[3][];
-        for(int i = 0; i < 3; i++)
-        {
-            tempgrid[i] = new State[3];
-        }
-
-
-        State lastPlayer = maxPlayer ? Player : AIPlayer;
-        State winner;
-
-        
-        winner = CheckForWinner(grid, lastMove, lastPlayer);
-        if (winner != State.blank)
-        {
-            //printGrid(grid);
-            if (winner == Player)
-            {
-                print("Player wins at depth : " + depth);
-                printGrid(grid);
-                return new MoveEvaluation(1, lastMove.x, lastMove.y);
-            }
-            else if(winner == AIPlayer)
-            {
-                print("AI wins at depth : " + depth);
-                printGrid(grid);
-                return new MoveEvaluation(-1, lastMove.x, lastMove.y);
-            }
-        }
-        if (depth == 0)
-        {
-            for (int i = 0; i < 3; i++)
-            {
-                for (int j = 0; j < 3; j++)
-                {
-
-                    if (grid[i][j] == State.blank)
-                    {
-                        grid[i][j] = State.X;
-                        //print("reached 0 depth");
-                        //printGrid(grid);
-                        return new MoveEvaluation(-1, lastMove.x, lastMove.y);       //if 0 depth, player X plays (in this case, human player) and win or lose, ok outcome for AI if actual player does their best
-                    }
-                }
-            }
-        }
-        //print("Maximizing player :" + maxPlayer + " at depth : " + depth);
-        if (maxPlayer)
-        {
-            return MaximizingPlayer(grid, depth, maxPlayer, tempgrid);
-        }
-
-        else
-        {
-            return MinimizingPlayer(grid, depth, maxPlayer, tempgrid);
-        }
-
-    }
-
-    private MoveEvaluation MinimizingPlayer(State[][] grid, int depth, bool maxPlayer, State[][] tempgrid)
-    {
-        MoveEvaluation minEval = new MoveEvaluation(1, -1, -1);
-        for (int i = 0; i < 3; i++)
-        {
-            for (int j = 0; j < 3; j++)
-            {
-                grid[i].CopyTo(tempgrid[i], 0);
-                if (tempgrid[i][j] == State.blank)
-                {
-                    if (depth == 1)
-                    {
-                        printGrid(tempgrid);
-                        print("Turns to");
-                    }
-                    tempgrid[i][j] = AIPlayer;
-                    if(depth == 1)
-                    {
-                        printGrid(tempgrid);
-                        print("_____________________________________________");
-                    }
-                    MoveEvaluation mE = Minimax(tempgrid, depth - 1, !maxPlayer, new Vector2Int(i, j));
-                    //print("Move evaluation has returned from depth " + (depth - 1) + " : " + mE.moveEval);
-                    if (minEval.moveEval > mE.moveEval)
-                    {
-                        //print("And it is better than AI's already selected move :" + minEval.moveEval + " , " + minEval.x + " , " + minEval.y);
-                        minEval.moveEval = mE.moveEval;
-                        minEval.x = i;
-                        minEval.y = j;
-                        //print("New move :" + minEval.moveEval + " , " + minEval.x + " , " + minEval.y);
-                        return minEval;
-                    }
-                    //else print("But AI's already selected move move was better :" + minEval.moveEval + " , " + minEval.x + " , " + minEval.y);
-                }
-            }
-        }
-        return minEval;
-    }
-
-    private MoveEvaluation MaximizingPlayer(State[][] grid, int depth, bool maxPlayer, State[][] tempgrid)
-    {
-        MoveEvaluation maxEval = new MoveEvaluation(-1, -1, -1);
-        for (int i = 0; i < 3; i++)
-        {
-            for (int j = 0; j < 3; j++)
-            {
-                grid[i].CopyTo(tempgrid[i], 0);
-                if (tempgrid[i][j] == State.blank)
-                {
-                    if (depth == 1)
-                    {
-                        printGrid(tempgrid);
-                        print("Turns to");
-                    }
-                    tempgrid[i][j] = Player;
-                    if (depth == 1)
-                    {
-                        printGrid(tempgrid);
-                        print("_____________________________________________");
-                    }
-                    //printGrid(tempgrid);
-                    //print("_____________________________________________");
-                    MoveEvaluation mE = Minimax(tempgrid, depth - 1, !maxPlayer, new Vector2Int(i, j));
-                    //print("Move evaluation has returned from depth " + (depth - 1) + " : " + mE.moveEval + " , " + maxEval.x + " , " + maxEval.y);
-                    if (maxEval.moveEval < mE.moveEval)
-                    {
-                        //print("And it is better than Player's already selected move :" + maxEval.moveEval + " , " + maxEval.x + " , " + maxEval.y);
-                        maxEval.moveEval = mE.moveEval;
-                        maxEval.x = i;
-                        maxEval.y = j;
-                        //print("New move :" + maxEval.moveEval + " , " + maxEval.x + " , " + maxEval.y);
-                        return maxEval;
-                    }
-                    //else print("But Player's already selected move move was better :" + maxEval.moveEval + " , " + maxEval.x + " , " + maxEval.y);
-
-                }
-            }
-        }
-        //print("\n \n");
-        return maxEval;
-    }
-
-    public void AITurn(State[][] grid, int turn, Vector2Int lastMove)
-    {
-        print("AI turn has begun, depth is " + (9 - turn));
-        if (!playing) return;
-        timesCalled = 0;
-        //printGrid(grid);
-        MoveEvaluation playMove = Minimax(grid, (9 - turn), false, lastMove);
-        if (playMove.x == lastMove.x && playMove.y == lastMove.y)
-        {
-            print("No more moves to play");
-            return;
-        }
-        //print("AI wants to play " + playMove.x + "," + playMove.y + " that has State: " + grid[playMove.x][playMove.y]);
-        grid[playMove.x][playMove.y] = AIPlayer;
-        //printGrid(grid);
-        GetComponent<GridManager>().ActivateSlot(playMove.x, playMove.y);
-        if (CheckForWinner(grid, new Vector2Int(playMove.x, playMove.y), AIPlayer) != State.blank)
-        {
-            playing = false;
-            return;
-        }
-        //transform.Find("Slot " + playMove.x.ToString()+ playMove.y.ToString()).Find(AIPlayer.ToString()).gameObject.SetActive(true);
-    }
-    */
 }
